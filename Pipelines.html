@@ -26,7 +26,9 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import time
+<pre><code class="python">from datetime import datetime
+import requests
+import time
 from abc import ABC, abstractmethod
 from PyApiManager.RequestFactory import RequestFactory
 
@@ -104,10 +106,11 @@ class GenericPipeline(ABC):
                 Integer.
                 Provides the number of data elements that need to be write together
                 with the write method
+                Put it to 1(one) to write after each element process
                 if transaction_rate number is higher than data length, write method
                 is executed once for all data elements at the end
                 if transaction_rate number is None(Not specified) write method is called
-                for each data element
+                once a the end of the pipe
 
         &#34;&#34;&#34;
         if transaction_rate is not None:
@@ -116,8 +119,9 @@ class GenericPipeline(ABC):
             for entry in self._data:
                 data_fragment = self.read(entry)
                 data_fragment = self.process(data_fragment)
-                data_storage.append(data_fragment)
-                count += 1
+                if data_fragment is not None:
+                    data_storage.append(data_fragment)
+                    count += 1
 
                 if count == transaction_rate:
                     self.write(data_storage)
@@ -127,10 +131,14 @@ class GenericPipeline(ABC):
             if data_storage:
                 self.write(data_storage)
         else:
+            data_storage = []
             for entry in self._data:
                 data_fragment = self.read(entry)
                 data_fragment = self.process(data_fragment)
-                self.write([data_fragment])
+                if data_fragment is not None:
+                    data_storage.append(data_fragment)
+            if data_storage:
+                self.write(data_storage)
 
 
 
@@ -156,13 +164,19 @@ class ApiPipeline(GenericPipeline, ABC):
             want that pipe sleep after each request to &#39;sleeping_time&#39; argument
     &#34;&#34;&#34;
 
-    _RequestFactory = None
+    request_factory = None
+    _err_log = []
+
+
+    @property
+    def err_log(self):
+        return self._err_log
 
 
     def __init__(self, request_factory: RequestFactory, sleeping_time: float = None):
         if not isinstance(request_factory, RequestFactory):
             raise ValueError(&#34;request_factory argument needs to be an instance of RequestFactory&#34;)
-        self._RequestFactory = request_factory
+        self.request_factory = request_factory
         self._sleeping_time = sleeping_time
 
 
@@ -189,12 +203,19 @@ class ApiPipeline(GenericPipeline, ABC):
 
 
         &#34;&#34;&#34;
-        read = self._RequestFactory(*entry)
+        read = self.request_factory(*entry)
         return read
 
 
     def process(self, entry):
         &#34;&#34;&#34;execute the requests created by read() method and sleep if needed
+
+        if an error Occurs during request execution an log object is added to
+        err_log argument
+        Log objects are 4-tuple like
+
+                (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+        Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
 
         Arguments:
 
@@ -202,12 +223,40 @@ class ApiPipeline(GenericPipeline, ABC):
 
                 a request element that is passed through this function in run_pipe method
                 check read() method documentation
-
         &#34;&#34;&#34;
-        result = entry.get_response()
-        if self._sleeping_time is not None:
+        try:
+            result = entry.get_response()
+        except requests.exceptions.ConnectionError as e:
+            self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+            result = None
+        except requests.exceptions.Timeout as e:
+            self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+            result = None
+        try:
+            result.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+            result = None
+
+        if self._sleeping_time is not None and result is not None:
             time.sleep(self._sleeping_time)
+
         return result
+
+
+    def __eq__(self, other):
+        &#34;&#34;&#34;Pipe with same request factorys are equals&#34;&#34;&#34;
+        return self.request_factory == other.request_factory
+
+
+    def __hash__(self):
+        &#34;&#34;&#34;Pipe with same request fatorys have same hash&#34;&#34;&#34;
+        return hash(self.request_factory)
+
+
+    def __repr__(self):
+        return f&#34;{self.__class__.__name__}(%r, %r)&#34; % (self.request_factory, self._sleeping_time)
+
 
 
     @abstractmethod
@@ -279,13 +328,19 @@ want that pipe sleep after each request to 'sleeping_time' argument
             want that pipe sleep after each request to &#39;sleeping_time&#39; argument
     &#34;&#34;&#34;
 
-    _RequestFactory = None
+    request_factory = None
+    _err_log = []
+
+
+    @property
+    def err_log(self):
+        return self._err_log
 
 
     def __init__(self, request_factory: RequestFactory, sleeping_time: float = None):
         if not isinstance(request_factory, RequestFactory):
             raise ValueError(&#34;request_factory argument needs to be an instance of RequestFactory&#34;)
-        self._RequestFactory = request_factory
+        self.request_factory = request_factory
         self._sleeping_time = sleeping_time
 
 
@@ -312,12 +367,19 @@ want that pipe sleep after each request to 'sleeping_time' argument
 
 
         &#34;&#34;&#34;
-        read = self._RequestFactory(*entry)
+        read = self.request_factory(*entry)
         return read
 
 
     def process(self, entry):
         &#34;&#34;&#34;execute the requests created by read() method and sleep if needed
+
+        if an error Occurs during request execution an log object is added to
+        err_log argument
+        Log objects are 4-tuple like
+
+                (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+        Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
 
         Arguments:
 
@@ -325,12 +387,40 @@ want that pipe sleep after each request to 'sleeping_time' argument
 
                 a request element that is passed through this function in run_pipe method
                 check read() method documentation
-
         &#34;&#34;&#34;
-        result = entry.get_response()
-        if self._sleeping_time is not None:
+        try:
+            result = entry.get_response()
+        except requests.exceptions.ConnectionError as e:
+            self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+            result = None
+        except requests.exceptions.Timeout as e:
+            self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+            result = None
+        try:
+            result.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+            result = None
+
+        if self._sleeping_time is not None and result is not None:
             time.sleep(self._sleeping_time)
+
         return result
+
+
+    def __eq__(self, other):
+        &#34;&#34;&#34;Pipe with same request factorys are equals&#34;&#34;&#34;
+        return self.request_factory == other.request_factory
+
+
+    def __hash__(self):
+        &#34;&#34;&#34;Pipe with same request fatorys have same hash&#34;&#34;&#34;
+        return hash(self.request_factory)
+
+
+    def __repr__(self):
+        return f&#34;{self.__class__.__name__}(%r, %r)&#34; % (self.request_factory, self._sleeping_time)
+
 
 
     @abstractmethod
@@ -354,6 +444,28 @@ want that pipe sleep after each request to 'sleeping_time' argument
 <li><a title="Pipelines.GenericPipeline" href="#Pipelines.GenericPipeline">GenericPipeline</a></li>
 <li>abc.ABC</li>
 </ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="Pipelines.ApiPipeline.request_factory"><code class="name">var <span class="ident">request_factory</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="Pipelines.ApiPipeline.err_log"><code class="name">var <span class="ident">err_log</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def err_log(self):
+    return self._err_log</code></pre>
+</details>
+</dd>
+</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="Pipelines.ApiPipeline.process"><code class="name flex">
@@ -361,6 +473,12 @@ want that pipe sleep after each request to 'sleeping_time' argument
 </code></dt>
 <dd>
 <div class="desc"><p>execute the requests created by read() method and sleep if needed</p>
+<p>if an error Occurs during request execution an log object is added to
+err_log argument
+Log objects are 4-tuple like</p>
+<pre><code>    ("entry", "status_code_if_there_is", "datetime", "typeError")
+</code></pre>
+<p>Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError</p>
 <h2 id="arguments">Arguments</h2>
 <p>entry:</p>
 <pre><code>a request element that is passed through this function in run_pipe method
@@ -373,17 +491,37 @@ check read() method documentation
 <pre><code class="python">def process(self, entry):
     &#34;&#34;&#34;execute the requests created by read() method and sleep if needed
 
+    if an error Occurs during request execution an log object is added to
+    err_log argument
+    Log objects are 4-tuple like
+
+            (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+    Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
+
     Arguments:
 
         entry:
 
             a request element that is passed through this function in run_pipe method
             check read() method documentation
-
     &#34;&#34;&#34;
-    result = entry.get_response()
-    if self._sleeping_time is not None:
+    try:
+        result = entry.get_response()
+    except requests.exceptions.ConnectionError as e:
+        self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+        result = None
+    except requests.exceptions.Timeout as e:
+        self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+        result = None
+    try:
+        result.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+        result = None
+
+    if self._sleeping_time is not None and result is not None:
         time.sleep(self._sleeping_time)
+
     return result</code></pre>
 </details>
 </dd>
@@ -434,7 +572,7 @@ a correct data element for api call is
 
 
     &#34;&#34;&#34;
-    read = self._RequestFactory(*entry)
+    read = self.request_factory(*entry)
     return read</code></pre>
 </details>
 </dd>
@@ -564,10 +702,11 @@ methods read, process and write needs to be override in the subclass</p></div>
                 Integer.
                 Provides the number of data elements that need to be write together
                 with the write method
+                Put it to 1(one) to write after each element process
                 if transaction_rate number is higher than data length, write method
                 is executed once for all data elements at the end
                 if transaction_rate number is None(Not specified) write method is called
-                for each data element
+                once a the end of the pipe
 
         &#34;&#34;&#34;
         if transaction_rate is not None:
@@ -576,8 +715,9 @@ methods read, process and write needs to be override in the subclass</p></div>
             for entry in self._data:
                 data_fragment = self.read(entry)
                 data_fragment = self.process(data_fragment)
-                data_storage.append(data_fragment)
-                count += 1
+                if data_fragment is not None:
+                    data_storage.append(data_fragment)
+                    count += 1
 
                 if count == transaction_rate:
                     self.write(data_storage)
@@ -587,10 +727,14 @@ methods read, process and write needs to be override in the subclass</p></div>
             if data_storage:
                 self.write(data_storage)
         else:
+            data_storage = []
             for entry in self._data:
                 data_fragment = self.read(entry)
                 data_fragment = self.process(data_fragment)
-                self.write([data_fragment])</code></pre>
+                if data_fragment is not None:
+                    data_storage.append(data_fragment)
+            if data_storage:
+                self.write(data_storage)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -687,10 +831,11 @@ def read(self, entry):
 <pre><code>Integer.
 Provides the number of data elements that need to be write together
 with the write method
+Put it to 1(one) to write after each element process
 if transaction_rate number is higher than data length, write method
 is executed once for all data elements at the end
 if transaction_rate number is None(Not specified) write method is called
-for each data element
+once a the end of the pipe
 </code></pre></div>
 <details class="source">
 <summary>
@@ -706,10 +851,11 @@ for each data element
             Integer.
             Provides the number of data elements that need to be write together
             with the write method
+            Put it to 1(one) to write after each element process
             if transaction_rate number is higher than data length, write method
             is executed once for all data elements at the end
             if transaction_rate number is None(Not specified) write method is called
-            for each data element
+            once a the end of the pipe
 
     &#34;&#34;&#34;
     if transaction_rate is not None:
@@ -718,8 +864,9 @@ for each data element
         for entry in self._data:
             data_fragment = self.read(entry)
             data_fragment = self.process(data_fragment)
-            data_storage.append(data_fragment)
-            count += 1
+            if data_fragment is not None:
+                data_storage.append(data_fragment)
+                count += 1
 
             if count == transaction_rate:
                 self.write(data_storage)
@@ -729,10 +876,14 @@ for each data element
         if data_storage:
             self.write(data_storage)
     else:
+        data_storage = []
         for entry in self._data:
             data_fragment = self.read(entry)
             data_fragment = self.process(data_fragment)
-            self.write([data_fragment])</code></pre>
+            if data_fragment is not None:
+                data_storage.append(data_fragment)
+        if data_storage:
+            self.write(data_storage)</code></pre>
 </details>
 </dd>
 <dt id="Pipelines.GenericPipeline.write"><code class="name flex">
@@ -778,8 +929,10 @@ def write(self, entry_pack):
 <li>
 <h4><code><a title="Pipelines.ApiPipeline" href="#Pipelines.ApiPipeline">ApiPipeline</a></code></h4>
 <ul class="">
+<li><code><a title="Pipelines.ApiPipeline.err_log" href="#Pipelines.ApiPipeline.err_log">err_log</a></code></li>
 <li><code><a title="Pipelines.ApiPipeline.process" href="#Pipelines.ApiPipeline.process">process</a></code></li>
 <li><code><a title="Pipelines.ApiPipeline.read" href="#Pipelines.ApiPipeline.read">read</a></code></li>
+<li><code><a title="Pipelines.ApiPipeline.request_factory" href="#Pipelines.ApiPipeline.request_factory">request_factory</a></code></li>
 <li><code><a title="Pipelines.ApiPipeline.write" href="#Pipelines.ApiPipeline.write">write</a></code></li>
 </ul>
 </li>
