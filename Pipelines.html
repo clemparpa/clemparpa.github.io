@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.9.2" />
-<title>Pipelines API documentation</title>
+<title>src.Pipelines API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -19,7 +19,7 @@
 <main>
 <article id="content">
 <header>
-<h1 class="title">Module <code>Pipelines</code></h1>
+<h1 class="title">Module <code>src.Pipelines</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
@@ -30,7 +30,7 @@
 import requests
 import time
 from abc import ABC, abstractmethod
-from PyApiManager.RequestFactory import RequestFactory
+from src.RequestFactory import RequestFactory
 
 
 class GenericPipeline(ABC):
@@ -113,6 +113,11 @@ class GenericPipeline(ABC):
                 once a the end of the pipe
 
         &#34;&#34;&#34;
+        # vide le cache d&#39;erreur
+        if hasattr(self, &#39;_err_log&#39;):
+            self._err_log = []
+
+
         if transaction_rate is not None:
             count = 0
             data_storage = []
@@ -139,6 +144,7 @@ class GenericPipeline(ABC):
                     data_storage.append(data_fragment)
             if data_storage:
                 self.write(data_storage)
+
 
 
 
@@ -170,7 +176,18 @@ class ApiPipeline(GenericPipeline, ABC):
 
     @property
     def err_log(self):
+        &#34;&#34;&#34; List of errors occured during Pipe
+
+            Log objects are 4-tuple like
+                (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+            Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
+        &#34;&#34;&#34;
         return self._err_log
+
+
+    def err_params_log(self):
+        &#34;&#34;&#34;return error logs parameters to rerun the pipe with failed requests&#34;&#34;&#34;
+        return [err[0].get_request_params() for err in self._err_log]
 
 
     def __init__(self, request_factory: RequestFactory, sleeping_time: float = None):
@@ -227,15 +244,15 @@ class ApiPipeline(GenericPipeline, ABC):
         try:
             result = entry.get_response()
         except requests.exceptions.ConnectionError as e:
-            self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+            self._err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
             result = None
         except requests.exceptions.Timeout as e:
-            self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+            self._err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
             result = None
         try:
             result.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+            self._err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
             result = None
 
         if self._sleeping_time is not None and result is not None:
@@ -285,9 +302,9 @@ class ApiPipeline(GenericPipeline, ABC):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="Pipelines.ApiPipeline"><code class="flex name class">
+<dt id="src.Pipelines.ApiPipeline"><code class="flex name class">
 <span>class <span class="ident">ApiPipeline</span></span>
-<span>(</span><span>request_factory: PyApiManager.RequestFactory.RequestFactory, sleeping_time: float = None)</span>
+<span>(</span><span>request_factory: <a title="src.RequestFactory.RequestFactory" href="RequestFactory.html#src.RequestFactory.RequestFactory">RequestFactory</a>, sleeping_time: float = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Abstract ApiPipeline</p>
@@ -334,7 +351,18 @@ want that pipe sleep after each request to 'sleeping_time' argument
 
     @property
     def err_log(self):
+        &#34;&#34;&#34; List of errors occured during Pipe
+
+            Log objects are 4-tuple like
+                (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+            Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
+        &#34;&#34;&#34;
         return self._err_log
+
+
+    def err_params_log(self):
+        &#34;&#34;&#34;return error logs parameters to rerun the pipe with failed requests&#34;&#34;&#34;
+        return [err[0].get_request_params() for err in self._err_log]
 
 
     def __init__(self, request_factory: RequestFactory, sleeping_time: float = None):
@@ -391,15 +419,15 @@ want that pipe sleep after each request to 'sleeping_time' argument
         try:
             result = entry.get_response()
         except requests.exceptions.ConnectionError as e:
-            self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+            self._err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
             result = None
         except requests.exceptions.Timeout as e:
-            self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+            self._err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
             result = None
         try:
             result.raise_for_status()
         except requests.exceptions.HTTPError as e:
-            self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+            self._err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
             result = None
 
         if self._sleeping_time is not None and result is not None:
@@ -441,34 +469,57 @@ want that pipe sleep after each request to 'sleeping_time' argument
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="Pipelines.GenericPipeline" href="#Pipelines.GenericPipeline">GenericPipeline</a></li>
+<li><a title="src.Pipelines.GenericPipeline" href="#src.Pipelines.GenericPipeline">GenericPipeline</a></li>
 <li>abc.ABC</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="Pipelines.ApiPipeline.request_factory"><code class="name">var <span class="ident">request_factory</span></code></dt>
+<dt id="src.Pipelines.ApiPipeline.request_factory"><code class="name">var <span class="ident">request_factory</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 </dl>
 <h3>Instance variables</h3>
 <dl>
-<dt id="Pipelines.ApiPipeline.err_log"><code class="name">var <span class="ident">err_log</span></code></dt>
+<dt id="src.Pipelines.ApiPipeline.err_log"><code class="name">var <span class="ident">err_log</span></code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>List of errors occured during Pipe</p>
+<p>Log objects are 4-tuple like
+("entry", "status_code_if_there_is", "datetime", "typeError")
+Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
 def err_log(self):
+    &#34;&#34;&#34; List of errors occured during Pipe
+
+        Log objects are 4-tuple like
+            (&#34;entry&#34;, &#34;status_code_if_there_is&#34;, &#34;datetime&#34;, &#34;typeError&#34;)
+        Errors catched are requests.exceptions.ConnectionError, Timeout, and HttpError
+    &#34;&#34;&#34;
     return self._err_log</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="Pipelines.ApiPipeline.process"><code class="name flex">
+<dt id="src.Pipelines.ApiPipeline.err_params_log"><code class="name flex">
+<span>def <span class="ident">err_params_log</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>return error logs parameters to rerun the pipe with failed requests</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def err_params_log(self):
+    &#34;&#34;&#34;return error logs parameters to rerun the pipe with failed requests&#34;&#34;&#34;
+    return [err[0].get_request_params() for err in self._err_log]</code></pre>
+</details>
+</dd>
+<dt id="src.Pipelines.ApiPipeline.process"><code class="name flex">
 <span>def <span class="ident">process</span></span>(<span>self, entry)</span>
 </code></dt>
 <dd>
@@ -508,15 +559,15 @@ check read() method documentation
     try:
         result = entry.get_response()
     except requests.exceptions.ConnectionError as e:
-        self.err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
+        self._err_log.append((entry, None, datetime.now(), &#34;ConnectionError&#34;), )
         result = None
     except requests.exceptions.Timeout as e:
-        self.err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
+        self._err_log.append((entry, None, datetime.now(), &#34;TimeOut&#34;), )
         result = None
     try:
         result.raise_for_status()
     except requests.exceptions.HTTPError as e:
-        self.err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
+        self._err_log.append((entry, result.status_code, datetime.now(), &#34;HttpError&#34;),)
         result = None
 
     if self._sleeping_time is not None and result is not None:
@@ -525,7 +576,7 @@ check read() method documentation
     return result</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.ApiPipeline.read"><code class="name flex">
+<dt id="src.Pipelines.ApiPipeline.read"><code class="name flex">
 <span>def <span class="ident">read</span></span>(<span>self, entry)</span>
 </code></dt>
 <dd>
@@ -576,7 +627,7 @@ a correct data element for api call is
     return read</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.ApiPipeline.write"><code class="name flex">
+<dt id="src.Pipelines.ApiPipeline.write"><code class="name flex">
 <span>def <span class="ident">write</span></span>(<span>self, entry_pack)</span>
 </code></dt>
 <dd>
@@ -610,15 +661,15 @@ def write(self, entry_pack):
 </dl>
 <h3>Inherited members</h3>
 <ul class="hlist">
-<li><code><b><a title="Pipelines.GenericPipeline" href="#Pipelines.GenericPipeline">GenericPipeline</a></b></code>:
+<li><code><b><a title="src.Pipelines.GenericPipeline" href="#src.Pipelines.GenericPipeline">GenericPipeline</a></b></code>:
 <ul class="hlist">
-<li><code><a title="Pipelines.GenericPipeline.load_data" href="#Pipelines.GenericPipeline.load_data">load_data</a></code></li>
-<li><code><a title="Pipelines.GenericPipeline.run_pipe" href="#Pipelines.GenericPipeline.run_pipe">run_pipe</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.load_data" href="#src.Pipelines.GenericPipeline.load_data">load_data</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.run_pipe" href="#src.Pipelines.GenericPipeline.run_pipe">run_pipe</a></code></li>
 </ul>
 </li>
 </ul>
 </dd>
-<dt id="Pipelines.GenericPipeline"><code class="flex name class">
+<dt id="src.Pipelines.GenericPipeline"><code class="flex name class">
 <span>class <span class="ident">GenericPipeline</span></span>
 </code></dt>
 <dd>
@@ -709,6 +760,11 @@ methods read, process and write needs to be override in the subclass</p></div>
                 once a the end of the pipe
 
         &#34;&#34;&#34;
+        # vide le cache d&#39;erreur
+        if hasattr(self, &#39;_err_log&#39;):
+            self._err_log = []
+
+
         if transaction_rate is not None:
             count = 0
             data_storage = []
@@ -742,11 +798,11 @@ methods read, process and write needs to be override in the subclass</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="Pipelines.ApiPipeline" href="#Pipelines.ApiPipeline">ApiPipeline</a></li>
+<li><a title="src.Pipelines.ApiPipeline" href="#src.Pipelines.ApiPipeline">ApiPipeline</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="Pipelines.GenericPipeline.load_data"><code class="name flex">
+<dt id="src.Pipelines.GenericPipeline.load_data"><code class="name flex">
 <span>def <span class="ident">load_data</span></span>(<span>self, data)</span>
 </code></dt>
 <dd>
@@ -769,7 +825,7 @@ ValueError is raised</p></div>
         raise ValueError(&#34;PyPipeline data must be a Generator or a Sequence(implement __iter__ method)&#34;)</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.GenericPipeline.process"><code class="name flex">
+<dt id="src.Pipelines.GenericPipeline.process"><code class="name flex">
 <span>def <span class="ident">process</span></span>(<span>self, entry)</span>
 </code></dt>
 <dd>
@@ -795,7 +851,7 @@ def process(self, entry):
     pass</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.GenericPipeline.read"><code class="name flex">
+<dt id="src.Pipelines.GenericPipeline.read"><code class="name flex">
 <span>def <span class="ident">read</span></span>(<span>self, entry)</span>
 </code></dt>
 <dd>
@@ -821,7 +877,7 @@ def read(self, entry):
     pass</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.GenericPipeline.run_pipe"><code class="name flex">
+<dt id="src.Pipelines.GenericPipeline.run_pipe"><code class="name flex">
 <span>def <span class="ident">run_pipe</span></span>(<span>self, transaction_rate=None)</span>
 </code></dt>
 <dd>
@@ -858,6 +914,11 @@ once a the end of the pipe
             once a the end of the pipe
 
     &#34;&#34;&#34;
+    # vide le cache d&#39;erreur
+    if hasattr(self, &#39;_err_log&#39;):
+        self._err_log = []
+
+
     if transaction_rate is not None:
         count = 0
         data_storage = []
@@ -886,7 +947,7 @@ once a the end of the pipe
             self.write(data_storage)</code></pre>
 </details>
 </dd>
-<dt id="Pipelines.GenericPipeline.write"><code class="name flex">
+<dt id="src.Pipelines.GenericPipeline.write"><code class="name flex">
 <span>def <span class="ident">write</span></span>(<span>self, entry_pack)</span>
 </code></dt>
 <dd>
@@ -924,26 +985,32 @@ def write(self, entry_pack):
 <ul></ul>
 </div>
 <ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="src" href="index.html">src</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="Pipelines.ApiPipeline" href="#Pipelines.ApiPipeline">ApiPipeline</a></code></h4>
-<ul class="">
-<li><code><a title="Pipelines.ApiPipeline.err_log" href="#Pipelines.ApiPipeline.err_log">err_log</a></code></li>
-<li><code><a title="Pipelines.ApiPipeline.process" href="#Pipelines.ApiPipeline.process">process</a></code></li>
-<li><code><a title="Pipelines.ApiPipeline.read" href="#Pipelines.ApiPipeline.read">read</a></code></li>
-<li><code><a title="Pipelines.ApiPipeline.request_factory" href="#Pipelines.ApiPipeline.request_factory">request_factory</a></code></li>
-<li><code><a title="Pipelines.ApiPipeline.write" href="#Pipelines.ApiPipeline.write">write</a></code></li>
+<h4><code><a title="src.Pipelines.ApiPipeline" href="#src.Pipelines.ApiPipeline">ApiPipeline</a></code></h4>
+<ul class="two-column">
+<li><code><a title="src.Pipelines.ApiPipeline.err_log" href="#src.Pipelines.ApiPipeline.err_log">err_log</a></code></li>
+<li><code><a title="src.Pipelines.ApiPipeline.err_params_log" href="#src.Pipelines.ApiPipeline.err_params_log">err_params_log</a></code></li>
+<li><code><a title="src.Pipelines.ApiPipeline.process" href="#src.Pipelines.ApiPipeline.process">process</a></code></li>
+<li><code><a title="src.Pipelines.ApiPipeline.read" href="#src.Pipelines.ApiPipeline.read">read</a></code></li>
+<li><code><a title="src.Pipelines.ApiPipeline.request_factory" href="#src.Pipelines.ApiPipeline.request_factory">request_factory</a></code></li>
+<li><code><a title="src.Pipelines.ApiPipeline.write" href="#src.Pipelines.ApiPipeline.write">write</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="Pipelines.GenericPipeline" href="#Pipelines.GenericPipeline">GenericPipeline</a></code></h4>
+<h4><code><a title="src.Pipelines.GenericPipeline" href="#src.Pipelines.GenericPipeline">GenericPipeline</a></code></h4>
 <ul class="">
-<li><code><a title="Pipelines.GenericPipeline.load_data" href="#Pipelines.GenericPipeline.load_data">load_data</a></code></li>
-<li><code><a title="Pipelines.GenericPipeline.process" href="#Pipelines.GenericPipeline.process">process</a></code></li>
-<li><code><a title="Pipelines.GenericPipeline.read" href="#Pipelines.GenericPipeline.read">read</a></code></li>
-<li><code><a title="Pipelines.GenericPipeline.run_pipe" href="#Pipelines.GenericPipeline.run_pipe">run_pipe</a></code></li>
-<li><code><a title="Pipelines.GenericPipeline.write" href="#Pipelines.GenericPipeline.write">write</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.load_data" href="#src.Pipelines.GenericPipeline.load_data">load_data</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.process" href="#src.Pipelines.GenericPipeline.process">process</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.read" href="#src.Pipelines.GenericPipeline.read">read</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.run_pipe" href="#src.Pipelines.GenericPipeline.run_pipe">run_pipe</a></code></li>
+<li><code><a title="src.Pipelines.GenericPipeline.write" href="#src.Pipelines.GenericPipeline.write">write</a></code></li>
 </ul>
 </li>
 </ul>
