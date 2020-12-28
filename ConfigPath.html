@@ -22,68 +22,6 @@
 <h1 class="title">Module <code>src.ConfigPath</code></h1>
 </header>
 <section id="section-intro">
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">from src.ApiConfig.UniqueDecorator import Unique
-from src.Config import Config
-from src.ApiConfig.ApiConfig import ApiConfig
-
-
-@Unique
-class ConfigPath:
-    &#34;&#34;&#34;Path which accept Config objects
-
-    Implement ApiConfigs class by &#39;__init__&#39; special method
-    Only Config objects are allowed(others are deleted, No Exception raised)
-    Config Objects with unique &#39;name&#39; attributs(if duplicates, one is saved others deleted)
-
-
-
-    Arguments:
-
-        config:
-
-            Config Object which provide api configuration
-            ApiConfig accept multiple Config Objects, separated by comma
-            ex
-
-                ApiConfig(
-                        Config(
-                        name=&#34;Api1&#34;,
-                        base_url=&#34;https://api/&#34;,
-                        auth=None,
-                        headers={&#39;header_field&#39;:&#39;header_value&#39;}),
-
-                        Config(
-                        name=&#34;Api1&#34;,
-                        base_url=&#34;https://api/&#34;,
-                        auth={&#39;auth_field&#39;:&#39;auth_token&#39;},
-                        headers=None),
-                    )
-
-            Specify &#39;None&#39; is not required when optional argument do not need a value
-
-
-    Exception:
-
-        UserWarning:
-
-            Only One ApiConfig instanciation allowed
-            If two &#39;ApiConfig()&#39; declared in your code
-            UserWarning Error is raised
-
-    &#34;&#34;&#34;
-
-
-    def __init__(self, *configs):
-        ApiConfig.configs = list(set([api for api in configs if isinstance(api, Config)]))
-
-
-    def __repr__(self):
-        return &#34;ApiConfig( *%r)&#34; % ApiConfig.configs</code></pre>
-</details>
 </section>
 <section>
 </section>
@@ -131,62 +69,6 @@ Specify 'None' is not required when optional argument do not need a value
 If two 'ApiConfig()' declared in your code
 UserWarning Error is raised
 </code></pre></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class ConfigPath:
-    &#34;&#34;&#34;Path which accept Config objects
-
-    Implement ApiConfigs class by &#39;__init__&#39; special method
-    Only Config objects are allowed(others are deleted, No Exception raised)
-    Config Objects with unique &#39;name&#39; attributs(if duplicates, one is saved others deleted)
-
-
-
-    Arguments:
-
-        config:
-
-            Config Object which provide api configuration
-            ApiConfig accept multiple Config Objects, separated by comma
-            ex
-
-                ApiConfig(
-                        Config(
-                        name=&#34;Api1&#34;,
-                        base_url=&#34;https://api/&#34;,
-                        auth=None,
-                        headers={&#39;header_field&#39;:&#39;header_value&#39;}),
-
-                        Config(
-                        name=&#34;Api1&#34;,
-                        base_url=&#34;https://api/&#34;,
-                        auth={&#39;auth_field&#39;:&#39;auth_token&#39;},
-                        headers=None),
-                    )
-
-            Specify &#39;None&#39; is not required when optional argument do not need a value
-
-
-    Exception:
-
-        UserWarning:
-
-            Only One ApiConfig instanciation allowed
-            If two &#39;ApiConfig()&#39; declared in your code
-            UserWarning Error is raised
-
-    &#34;&#34;&#34;
-
-
-    def __init__(self, *configs):
-        ApiConfig.configs = list(set([api for api in configs if isinstance(api, Config)]))
-
-
-    def __repr__(self):
-        return &#34;ApiConfig( *%r)&#34; % ApiConfig.configs</code></pre>
-</details>
 </dd>
 </dl>
 </section>
